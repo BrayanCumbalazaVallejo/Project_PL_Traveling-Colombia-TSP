@@ -32,7 +32,6 @@ __pycache__/
 .streamlit/*.json
 
 # Datos temporales
-*.csv
 *.npy
 *.npz
 
