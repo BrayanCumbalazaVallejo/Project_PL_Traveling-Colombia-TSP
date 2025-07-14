@@ -1,0 +1,43 @@
+# Entorno virtual
+.venv/
+venv/
+env/
+/homework.egg-info/
+# Archivos de configuración del sistema
+.DS_Store
+Thumbs.db
+
+# Archivos de Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+# Archivos de Jupyter o notebooks ocultos
+.ipynb_checkpoints/
+
+# Archivos de logs o salida
+*.log
+*.out
+*.tmp
+
+# Archivos de configuración de VSCode/PyCharm
+.vscode/
+.idea/
+
+# Archivos de Streamlit (cache, historial)
+.streamlit/config.toml
+.streamlit/secrets.toml
+.streamlit/*.json
+
+# Datos temporales
+*.csv
+*.npy
+*.npz
+
+# Archivos médicos
+*.dcm
+
+# KEY
+.env
