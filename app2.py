@@ -7,6 +7,8 @@ Original file is located at
     https://colab.research.google.com/drive/1sPGP69uedNGpZRm_md2wsUdPXh6QxMKv
 """
 
+pip install streamlit
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -16,13 +18,9 @@ import plotly.graph_objects as go
 import time
 
 # =============================================================================
-# CONFIGURACIÓN DEL ALGORITMO GENÉTICO Y LA APP
+# CONFIGURACIÓN Y LÓGICA DEL ALGORITMO (BASADO EN TU VERSIÓN FINAL)
 # =============================================================================
-st.set_page_config(layout="wide")
-st.title('Optimizador de Ruta del Vendedor Viajero (TSP) para Colombia')
-st.markdown("Esta aplicación utiliza un **algoritmo genético** para encontrar la ruta más corta que conecta las capitales de Colombia.")
 
-# PARÁMETROS DEL ALGORITMO
 MUTATION_RATE = 0.2
 CROSSOVER_RATE = 0.9
 POPULATION_SIZE = 250
@@ -31,19 +29,11 @@ N_ITERATIONS = 400
 TOURNAMENT_SIZE = 7
 EARLY_STOPPING_PATIENCE = 100
 
-# Semilla para reproducibilidad
 seed_value = 123
 np.random.seed(seed_value)
 
-# =============================================================================
-# CARGA DE DATOS
-# =============================================================================
 @st.cache_data
 def load_colombia_data():
-    """
-    Carga los datos de las capitales de Colombia desde los archivos CSV.
-    Se ejecuta una sola vez gracias al decorador de cache de Streamlit.
-    """
     coords_file = 'ubicacion.csv'
     dist_file = 'distancias.csv'
 
@@ -59,10 +49,6 @@ def load_colombia_data():
     return cities, distance_matrix
 
 CITIES, DISTANCE_MATRIX = load_colombia_data()
-
-# =============================================================================
-# CLASES DEL ALGORITMO GENÉTICO (Con la corrección)
-# =============================================================================
 
 class TSPCandidate:
     def __init__(self):
@@ -135,24 +121,19 @@ class Population:
 
     @property
     def statistics(self):
-        """
-        Calcula y devuelve las estadísticas de la población actual.
-        Este es el método que faltaba.
-        """
         scores = [c.fitness_score for c in self.candidates]
         return {'min_dist': np.min(scores), 'mean_dist': np.mean(scores)}
 
 # =============================================================================
-# FUNCIONES DE VISUALIZACIÓN
+# INTERFAZ DE STREAMLIT
 # =============================================================================
 
-def draw_map(cities_df, route_indices=None, title=""):
-    """
-    Dibuja el mapa de Colombia con las ciudades y opcionalmente una ruta.
-    """
-    fig = go.Figure()
+st.set_page_config(layout="wide")
+st.title('Optimizador de Ruta del Vendedor Viajero (TSP) para Colombia')
+st.markdown("Esta aplicación utiliza un **algoritmo genético** para encontrar la ruta más corta que conecta las capitales de Colombia.")
 
-    # Añadir las ciudades como marcadores
+def draw_map(cities_df, route_indices=None, title=""):
+    fig = go.Figure()
     fig.add_trace(go.Scattermapbox(
         lat=cities_df['Latitud'],
         lon=cities_df['Longitud'],
@@ -162,12 +143,9 @@ def draw_map(cities_df, route_indices=None, title=""):
         textposition='top right'
     ))
 
-    # Añadir la ruta si se proporciona
     if route_indices is not None:
         route_points = cities_df.iloc[route_indices]
-        # Añadir el punto de inicio para cerrar el ciclo
         route_points = pd.concat([route_points, route_points.iloc[:1]], ignore_index=True)
-
         fig.add_trace(go.Scattermapbox(
             lat=route_points['Latitud'],
             lon=route_points['Longitud'],
@@ -176,7 +154,6 @@ def draw_map(cities_df, route_indices=None, title=""):
             name="Ruta"
         ))
 
-    # Actualizar el layout del mapa
     fig.update_layout(
         title=title,
         showlegend=False,
@@ -187,20 +164,13 @@ def draw_map(cities_df, route_indices=None, title=""):
     )
     return fig
 
-# =============================================================================
-# LÓGICA DE LA APLICACIÓN STREAMLIT
-# =============================================================================
-
 if CITIES is not None:
-    # Placeholders para los elementos que se actualizarán dinámicamente
     summary_placeholder = st.empty()
     map_placeholder = st.empty()
 
-    # Mostrar el mapa inicial con todas las ciudades
     map_placeholder.plotly_chart(draw_map(CITIES, title="Capitales de Colombia"), use_container_width=True)
 
     if st.button('🚀 Iniciar Optimización'):
-
         population = Population()
         population.sort_candidates()
         initial_solution = copy.deepcopy(population.candidates[0])
@@ -217,39 +187,30 @@ if CITIES is not None:
             stats = population.statistics
             current_best_score = stats['min_dist']
 
-            if current_best_score < best_overall_score:
+            new_best_found = current_best_score < best_overall_score
+
+            if new_best_found:
                 best_overall_score = current_best_score
                 generations_without_improvement = 0
+            else:
+                generations_without_improvement += 1
 
-                # Actualizar la UI con la nueva mejor ruta encontrada
+            if new_best_found or (i + 1) % 50 == 0:
                 population.sort_candidates()
                 best_candidate = population.candidates[0]
-
                 summary_text = f"""
-                **Generación {i+1}/{N_ITERATIONS}** | **Mejor Distancia Actual: {current_best_score:.2f} km**
+                **Generación {i+1}/{N_ITERATIONS}** | **Mejor Distancia Actual: {best_overall_score:.2f} km**
 
                 *Generaciones sin mejora: {generations_without_improvement}*
                 """
                 summary_placeholder.info(summary_text)
-                map_placeholder.plotly_chart(draw_map(CITIES, best_candidate.chromosomes, f"Mejor Ruta en Generación {i+1}"), use_container_width=True)
-
-            else:
-                generations_without_improvement += 1
-
-            if (i + 1) % 50 == 0:
-                 summary_text = f"""
-                **Generación {i+1}/{N_ITERATIONS}** | **Mejor Distancia Actual: {current_best_score:.2f} km**
-
-                *Generaciones sin mejora: {generations_without_improvement}*
-                """
-                 summary_placeholder.info(summary_text)
-
+                if new_best_found:
+                    map_placeholder.plotly_chart(draw_map(CITIES, best_candidate.chromosomes, f"Mejor Ruta en Generación {i+1}"), use_container_width=True)
 
             if generations_without_improvement >= EARLY_STOPPING_PATIENCE:
                 st.warning(f"--- Parada Temprana: La solución no ha mejorado en {EARLY_STOPPING_PATIENCE} generaciones. Deteniendo en la generación {i+1}. ---")
                 break
 
-        # Mostrar el resultado final
         population.sort_candidates()
         best_final_solution = population.candidates[0]
 
@@ -261,6 +222,5 @@ if CITIES is not None:
         st.subheader("Orden de Visita Sugerido:")
         st.info(" -> ".join(ordered_capitals))
 
-        # Actualizar el mapa y el resumen por última vez
         summary_placeholder.success("¡Optimización Completada!")
         map_placeholder.plotly_chart(draw_map(CITIES, best_final_solution.chromosomes, "Ruta Óptima Final"), use_container_width=True)
