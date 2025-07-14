@@ -21,7 +21,7 @@ import time
 # CONFIGURACIÓN Y LÓGICA DEL ALGORITMO (BASADO EN TU VERSIÓN FINAL)
 # =============================================================================
 
-MUTATION_RATE = 0.1
+MUTATION_RATE = 0.18
 CROSSOVER_RATE = 0.9
 POPULATION_SIZE = 250
 ELITISM_RATE = 0.1
