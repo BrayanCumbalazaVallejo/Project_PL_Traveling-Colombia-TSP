@@ -61,7 +61,7 @@ def load_colombia_data():
 CITIES, DISTANCE_MATRIX = load_colombia_data()
 
 # =============================================================================
-# CLASES DEL ALGORITMO GENÉTICO (Sin cambios en la lógica)
+# CLASES DEL ALGORITMO GENÉTICO (Con la corrección)
 # =============================================================================
 
 class TSPCandidate:
@@ -132,6 +132,15 @@ class Population:
             child.mutate()
             next_gen.append(child)
         self.candidates = next_gen
+
+    @property
+    def statistics(self):
+        """
+        Calcula y devuelve las estadísticas de la población actual.
+        Este es el método que faltaba.
+        """
+        scores = [c.fitness_score for c in self.candidates]
+        return {'min_dist': np.min(scores), 'mean_dist': np.mean(scores)}
 
 # =============================================================================
 # FUNCIONES DE VISUALIZACIÓN
