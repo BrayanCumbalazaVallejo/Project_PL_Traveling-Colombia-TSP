@@ -7,7 +7,7 @@ import time
 import math
 
 st.set_page_config(layout="wide")
-st.title('TSP: Ruta Óptima por las Capitales de Colombia')
+st.title('TSP: Ruta Turística Óptima por Colombia')
 
 @st.cache_data
 def load_data():
@@ -94,8 +94,8 @@ if 'last_run_n' not in st.session_state:
     st.session_state.last_run_n = 0
 
 if df_ubicaciones_full is not None:
-    st.markdown("### 1. Selecciona el Número de Ciudades")
-    n_ciudades = st.slider("Arrastra para elegir cuántas de las primeras ciudades del dataset incluir en la ruta:", min_value=4, max_value=32, value=32, key="n_slider")
+    st.markdown("### 1. Define tu Top de Ciudades Turísticas")
+    n_ciudades = st.slider("Selecciona el Top N de ciudades más visitadas para calcular la ruta óptima:", min_value=4, max_value=32, value=32, key="n_slider")
 
     df_ubicaciones = df_ubicaciones_full.head(n_ciudades)
     df_distancias = df_distancias_full.iloc[:n_ciudades, :n_ciudades]
@@ -103,8 +103,11 @@ if df_ubicaciones_full is not None:
     dist = {(i, j): df_distancias.iloc[i, j] for i in range(n_ciudades) for j in range(i)}
 
     st.markdown("---")
-    st.markdown(f"### 2. Inicia la Optimización para **{n_ciudades}** Ciudades")
-    st.subheader("Algoritmo: Formulación de Dantzig-Fulkerson-Johnson (DFJ)")
+    st.markdown(f"### 2. Optimiza la Ruta para el Top {n_ciudades}")
+    st.subheader("Algoritmo Utilizado: Formulación Dantzig-Fulkerson-Johnson (DFJ)")
+    st.info("""
+    Este método implementa la célebre formulación **Dantzig-Fulkerson-Johnson (DFJ)**, resuelta con Gurobi. El solver utiliza el **algoritmo Simplex** dentro de una estrategia general de **Branch and Cut**. Las restricciones de eliminación de sub-rutas se añaden dinámicamente como "cortes perezosos", lo cual se visualiza en cada iteración del mapa.
+    """)
     
     summary_placeholder = st.empty()
     plot_placeholder = st.empty()
@@ -148,7 +151,7 @@ if df_ubicaciones_full is not None:
 
     if st.session_state.optimal_sequence:
         st.markdown("---")
-        st.markdown("### 3. Explora la Ruta Final")
+        st.markdown("### 3. Explora la Ruta Óptima")
         st.write("Selecciona una ciudad de inicio para ver la ruta detallada y su animación en el mapa.")
 
         cols_per_row = 8

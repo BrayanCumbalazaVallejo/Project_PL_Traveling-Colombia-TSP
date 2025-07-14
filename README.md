@@ -1,81 +1,92 @@
-# Solución al Problema del Viajante (TSP) para las Capitales de Colombia
+# TSP Interactivo para Rutas Turísticas en Colombia
 
-Solución del Problema del Viajante (TSP) para encontrar la ruta óptima que conecta las 32 ciudades capitales de Colombia. El problema se modela usando Programación Lineal Entera Mixta y se resuelve con el optimizador Gurobi, que implementa métodos como el **Simplex** y **Branch and Cut**. La interfaz interactiva ha sido desarrollada en **Streamlit** para visualizar la solución.
+Una aplicación interactiva desarrollada en Streamlit que resuelve el Problema del Agente Viajero (TSP) para un subconjunto seleccionable de las capitales de Colombia, ordenadas por su importancia turística.
 
-***
+---
 
-# 👥 Integrantes
+## 👥 Integrantes
 * Brayan Armando Cumbalaza Vallejo
 * Mateo Mora Montero
 
-***
+---
 
-# 📝 Descripción del Proyecto y el Problema Técnico
+## 📝 Descripción del Proyecto
 
-El **Problema del Agente Viajero** (TSP, por sus siglas en inglés) es uno de los desafíos más conocidos en el campo de la optimización combinatoria. El objetivo es simple de enunciar pero computacionalmente complejo de resolver:
+Este proyecto va más allá de una simple solución al TSP. Permite a los usuarios explorar la logística de rutas turísticas en Colombia de una manera interactiva. La aplicación utiliza un dataset de las 32 capitales departamentales, pre-ordenadas según estadísticas de turismo.
 
-> Dada una lista de ciudades y las distancias entre cada par de ellas, ¿cuál es la ruta más corta posible que visita cada ciudad exactamente una vez y regresa a la ciudad de origen?
+El usuario puede seleccionar un "Top N" de las ciudades más visitadas y la herramienta calculará la ruta más corta que conecta estos destinos, utilizando un modelo matemático robusto y visualizando cada paso del proceso.
 
-La dificultad radica en que el número de posibles rutas crece de forma factorial ($(n-1)!/2$). Para un recorrido por las 32 capitales de Colombia, una búsqueda por fuerza bruta es computacionalmente inviable.
+---
 
-## Nuestra Solución: Programación Lineal y Restricciones Inteligentes
+## ✨ Características Principales
 
-Para resolver este problema, hemos implementado un modelo de **Programación Lineal Entera Mixta (MILP)** utilizando Python y la librería Gurobi. El enfoque técnico es el siguiente:
+* **Selección Dinámica del "Top N"**: Mediante un slider, el usuario puede elegir cuántas de las ciudades más turísticas (desde 4 hasta 32) desea incluir en el cálculo de la ruta.
+* **Visualización en Tiempo Real**: Observa cómo el optimizador Gurobi trabaja, añadiendo restricciones y eliminando sub-rutas en un mapa de Colombia actualizado en vivo.
+* **Exploración de la Ruta Final**: Una vez calculada la ruta óptima, puedes:
+    * Seleccionar cualquier ciudad de la ruta como punto de partida.
+    * Ver la secuencia del recorrido en texto, tanto en sentido óptimo como en sentido inverso.
+    * Visualizar el trazado del recorrido seleccionado en un mapa animado que dibuja la ruta paso a paso.
 
-1.  **Modelo Matemático:**
-    * **Variables de Decisión:** Se define una variable binaria $x_{ij}$ para cada par de ciudades $(i, j)$. La variable toma el valor $1$ si la ruta óptima incluye el trayecto de la ciudad $i$ a la $j$, y $0$ en caso contrario.
-    * **Función Objetivo:** Se busca minimizar la distancia total del recorrido. Matemáticamente, esto se expresa como:
-        $$\min \sum_{i,j} d_{ij} \cdot x_{ij}$$
-        donde $d_{ij}$ es la distancia entre la ciudad $i$ y la $j$.
+---
 
-2.  **Restricciones del Modelo:**
-    * **Restricciones de Grado:** Se asegura que a cada ciudad se llega una sola vez y se sale una sola vez. Esto se logra garantizando que exactamente dos arcos (uno de entrada y uno de salida) estén conectados a cada ciudad.
-    * **Eliminación de Sub-rutas (Subtours):** Una solución que satisface solo las restricciones de grado podría resultar en múltiples ciclos desconectados en lugar de una única ruta. Para evitar esto, implementamos **restricciones perezosas (lazy constraints)**. El optimizador busca una solución y, si esta contiene sub-rutas, nuestra función `subtourelim` detecta el ciclo más corto y añade dinámicamente una nueva restricción que lo prohíbe. Este proceso se repite hasta que se encuentra una ruta única y conectada.
+## 🛠 Stack Tecnológico
 
-***
+* **Lenguaje**: Python
+* **Optimización**: Gurobi (`gurobipy`) para resolver el modelo de Programación Entera Mixta.
+* **Interfaz y Visualización**:
+    * Streamlit para la construcción de la aplicación web interactiva.
+    * Plotly para la creación de los mapas geoespaciales interactivos y animados.
+* **Manejo de Datos**: Pandas
 
-# 🛠 Stack Tecnológico
+---
 
-### 🖥️ Backend y Optimización
-* **Python** como lenguaje principal.
-* **Gurobi (`gurobipy`)**: Potente motor de optimización para modelar y resolver el problema de programación lineal. Utiliza algoritmos avanzados como el **método Simplex** y **Branch and Cut**.
-* **NumPy**: Para operaciones numéricas eficientes, especialmente en el manejo de coordenadas.
-* **Pandas**: Utilizado para la manipulación y gestión de datos.
+## ⚙️ Detalles Técnicos del Modelo
 
-### 🖼️ Interfaz de Usuario (UI)
-* **Streamlit**: Framework utilizado para construir la aplicación web interactiva.
-* **Visualización Interactiva**: La interfaz permite al usuario generar un número variable de destinos (`st.slider`) y visualiza tanto los puntos como la ruta óptima encontrada.
-* **Matplotlib**: Librería encargada de generar los gráficos 2D que muestran las ciudades y el recorrido final.
+El problema se resuelve implementando la célebre formulación **Dantzig-Fulkerson-Johnson (DFJ)**.
+- **Modelo**: Se usan variables binarias para cada posible trayecto.
+- **Motor de Solución**: Gurobi utiliza el **algoritmo Simplex** dentro de una estrategia general de **Branch and Cut**.
+- **Cortes (Cuts)**: Las restricciones de eliminación de sub-rutas, clave del modelo DFJ, se añaden dinámicamente como "cortes perezosos" (lazy constraints), lo cual se visualiza en la primera animación.
 
-***
+---
 
-# 🚀 Instalación y Configuración
+## 🚀 Instalación y Uso
 
-### Requisitos
+### Requisitos Previos
 * Python 3.10+
-* **Gurobi Optimizer instalado**: Gurobi no es solo una librería de Python, requiere la instalación del optimizador en tu sistema y una licencia (ofrecen licencias académicas gratuitas).
-* Un archivo `requirements.txt` con las dependencias de Python.
+* **Gurobi Optimizer**: Debe estar instalado en el sistema y contar con una licencia activa (las licencias académicas son gratuitas).
+* **Archivos de Datos**: Los archivos `ubicacion.csv` y `distancias.csv` deben estar en la misma carpeta que el script de la aplicación.
 
-### Pasos para la Instalación
-```bash
-# 1. Clonar el repositorio
-git clone [https://github.com/BrayanCumbalazaVallejo/Project_PL_Traveling-Colombia-TSP](https://github.com/BrayanCumbalazaVallejo/Project_PL_Traveling-Colombia-TSP)
+### Pasos
+1.  **Clonar el repositorio:**
+    ```bash
+    git clone [URL-DE-TU-REPOSITORIO]
+    cd [NOMBRE-DE-LA-CARPETA]
+    ```
 
-# 2. Navegar al directorio del proyecto
-cd Project_PL_Traveling-Colombia-TSP
+2.  **Crear y activar un entorno virtual:**
+    ```bash
+    python -m venv venv
+    # En Windows
+    venv\Scripts\activate
+    # En macOS/Linux
+    source venv/bin/activate
+    ```
 
-# 3. Crear y activar un entorno virtual
-python -m venv venv
-# En Windows:
-venv\Scripts\activate
-# En Linux/Mac:
-source venv/bin/activate
+3.  **Instalar las dependencias:**
+    Crea un archivo `requirements.txt` con el siguiente contenido y luego ejecuta `pip install -r requirements.txt`.
+    ```txt
+    streamlit
+    pandas
+    gurobipy
+    plotly
+    numpy
+    ```
 
-# 4. Instalar las dependencias de Python
-pip install -r requirements.txt
+4.  **Ejecutar la aplicación:**
+    ```bash
+    streamlit run app.py
+    ```
+---
 
-# 5. Ejecutar la aplicación de Streamlit
-streamlit run app.py
-
-# Para desactivar el entorno virtual cuando termines
-deactivate
+## 📄 Licencia
+Distribuido bajo la licencia MIT.
