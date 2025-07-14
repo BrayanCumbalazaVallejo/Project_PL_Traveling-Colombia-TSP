@@ -60,21 +60,20 @@ def subtourelim(model, where):
         - **Restricciones Añadidas:** `{model._subtours}`
         """)
         
-        fig = draw_map(model._df_ubicaciones, tours)
+        fig = draw_map(model._df_ubicaciones, tours=tours)
         model._plot.plotly_chart(fig, use_container_width=True)
         
         time.sleep(4)
 
-def draw_map(df_ubicaciones, tours=None):
+def draw_map(df_ubicaciones, tours=None, highlighted_tour=None):
     fig = go.Figure()
 
     fig.add_trace(go.Scattermapbox(
         lat=df_ubicaciones['Latitud'],
         lon=df_ubicaciones['Longitud'],
-        mode='markers+text',
+        mode='markers',
         marker=go.scattermapbox.Marker(size=10, color='darkblue'),
         text=df_ubicaciones['Capital'],
-        textposition='top right'
     ))
 
     if tours:
@@ -86,9 +85,21 @@ def draw_map(df_ubicaciones, tours=None):
                 lat=tour_points['Latitud'],
                 lon=tour_points['Longitud'],
                 mode='lines',
-                line=go.scattermapbox.Line(width=2),
-                name=f"Ruta {i+1}"
+                line=go.scattermapbox.Line(width=2, color='gray'),
+                name=f"Sub-ruta {i+1}"
             ))
+
+    if highlighted_tour:
+        tour_copy = highlighted_tour[:]
+        tour_copy.append(tour_copy[0])
+        tour_points = df_ubicaciones.iloc[tour_copy]
+        fig.add_trace(go.Scattermapbox(
+            lat=tour_points['Latitud'],
+            lon=tour_points['Longitud'],
+            mode='lines',
+            line=go.scattermapbox.Line(width=4, color='crimson'),
+            name="Ruta Seleccionada"
+        ))
 
     fig.update_layout(
         showlegend=False,
@@ -141,27 +152,27 @@ if df_ubicaciones is not None:
             vars[j, i] = vars[i, j]
 
         m._vars = vars
-
         m.addConstrs(vars.sum(i, '*') == 2 for i in range(n))
-        
         m.optimize(subtourelim)
 
         final_tour_edges = [k for k, v in m.getAttr('x', vars).items() if v > 0.5]
         final_tours = subtour(tuplelist(final_tour_edges), n)
         st.session_state.optimal_sequence = final_tours[0]
         
-        final_fig = draw_map(df_ubicaciones, final_tours)
-        
-        plot_placeholder.plotly_chart(final_fig, use_container_width=True, key="final_map")
-
         summary_placeholder.success("¡Optimización Completada!")
         st.write(f"**Distancia Óptima Total:** `{round(m.objVal):,} km`")
         st.write(f"**Tiempo de Ejecución:** `{m.Runtime:.2f} segundos`")
         st.write(f"**Total de Iteraciones (Callbacks):** `{m._iterations}`")
+        
+        # Dibuja el mapa final estático en el placeholder de arriba
+        final_fig = draw_map(df_ubicaciones, highlighted_tour=st.session_state.optimal_sequence)
+        plot_placeholder.plotly_chart(final_fig, use_container_width=True, key="final_static_map")
+
 
     if st.session_state.optimal_sequence:
         st.markdown("---")
-        st.subheader("Selecciona una Ciudad de Inicio para ver la Ruta Detallada")
+        st.subheader("Explora la Ruta Final")
+        st.write("Selecciona una ciudad de inicio para ver la ruta detallada y su animación en el mapa.")
 
         city_index = 0
         for _ in range(4):
@@ -182,13 +193,47 @@ if df_ubicaciones is not None:
             reversed_sequence = optimal_sequence[::-1]
             start_pos_rev = reversed_sequence.index(start_node_index)
             reordered_backward = reversed_sequence[start_pos_rev:] + reversed_sequence[:start_pos_rev]
+
+            cols_vis = st.columns([1, 1])
+            with cols_vis[0]:
+                st.markdown("#### Visualizar Recorrido")
+                route_to_show = st.radio(
+                    "Selecciona la ruta a visualizar:",
+                    ("Ruta Óptima", "Ruta Inversa"),
+                    key="route_selector",
+                    horizontal=True
+                )
+
+            route_map_placeholder = st.empty()
             
-            route1_names = [cities[i] for i in reordered_forward] + [cities[start_node_index]]
-            route2_names = [cities[i] for i in reordered_backward] + [cities[start_node_index]]
+            highlight_sequence = reordered_forward if route_to_show == "Ruta Óptima" else reordered_backward
+            
+            # Animación de la ruta
+            fig_anim = draw_map(df_ubicaciones) # Mapa base con ciudades
+            route_map_placeholder.plotly_chart(fig_anim, use_container_width=True)
+            time.sleep(0.5)
 
-            st.markdown(f"#### Rutas desde **{cities[start_node_index]}**")
-            st.markdown("**Ruta 1 (Sentido Óptimo):**")
-            st.info(" ➔ ".join(route1_names))
+            route_with_end = highlight_sequence + [highlight_sequence[0]]
+            for i in range(len(route_with_end) - 1):
+                segment = [route_with_end[i], route_with_end[i+1]]
+                segment_points = df_ubicaciones.iloc[segment]
+                fig_anim.add_trace(go.Scattermapbox(
+                    lat=segment_points['Latitud'],
+                    lon=segment_points['Longitud'],
+                    mode='lines',
+                    line=go.scattermapbox.Line(width=4, color='crimson'),
+                ))
+                route_map_placeholder.plotly_chart(fig_anim, use_container_width=True)
+                time.sleep(0.25)
+            
+            # Rutas en texto
+            with cols_vis[1]:
+                route1_names = [cities[i] for i in reordered_forward] + [cities[start_node_index]]
+                route2_names = [cities[i] for i in reordered_backward] + [cities[start_node_index]]
 
-            st.markdown("**Ruta 2 (Sentido Contrario):**")
-            st.info(" ➔ ".join(route2_names))
+                st.markdown(f"#### Rutas desde **{cities[start_node_index]}**")
+                st.markdown("**Ruta 1 (Sentido Óptimo):**")
+                st.info(" ➔ ".join(route1_names))
+
+                st.markdown("**Ruta 2 (Sentido Contrario):**")
+                st.info(" ➔ ".join(route2_names))
