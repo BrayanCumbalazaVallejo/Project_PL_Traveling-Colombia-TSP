@@ -103,37 +103,82 @@ if df_ubicaciones_full is not None:
 
     st.markdown("---")
     st.markdown(f"### 2. Optimiza la Ruta para el Top {n_ciudades}")
-    st.subheader("Algoritmo Utilizado: Formulación Dantzig-Fulkerson-Johnson (DFJ)")
+    st.subheader("Planteamientos del Problema del Vendedor Viajero (TSP)")
     st.info("""
-    Este método implementa la célebre formulación **Dantzig-Fulkerson-Johnson (DFJ)**, resuelta con Gurobi. El solver utiliza el **algoritmo Simplex** para las relajaciones lineales dentro de una estrategia general de **Branch and Cut**. Las restricciones de eliminación de sub-rutas se añaden dinámicamente como "cortes perezosos", lo cual se visualiza en cada iteración del mapa.
+    A continuación se presentan diferentes formas de abordar el TSP. Esta aplicación implementa la formulación **Dantzig-Fulkerson-Johnson (DFJ)**, que es un método de optimización matemática exacta.
     """)
     
-    with st.expander("Haz clic para ver el planteamiento como Formulación DFJ"):
+    # --- ORDEN DE DESPLEGABLES SOLICITADO ---
+
+    # 1. Planteamiento General de Programación Lineal
+    with st.expander("Haz clic para ver el Planteamiento del TSP como Programación Lineal"):
         st.markdown(r"""
-                    
-        ### Complejidad Algorítmica
-        El Problema del Vendedor Viajero (TSP) es **NP-duro**. Esto significa que no existe un algoritmo conocido que pueda resolverlo en tiempo polinomial para todos los casos. La complejidad del método Branch and Cut, que es el que se usa aquí, es en el peor de los casos de orden exponencial:
-        $$ O(n^2 2^n) $$
-        El tiempo de cómputo crece de manera explosiva con el número de ciudades ($n$), lo que hace que encontrar la solución óptima para problemas muy grandes sea computacionalmente inviable.
+        El Problema del Vendedor Viajero (TSP) puede formularse como un problema de **programación lineal entera**. El objetivo es seleccionar un conjunto de arcos (caminos entre ciudades) que formen un ciclo único (un "tour") que visite cada ciudad exactamente una vez, minimizando la distancia total.
 
-        La formulación propuesta por Dantzig, Fulkerson y Johnson define el problema con una variable binaria $x_{ij}$ y un parámetro de costo/distancia $c_{ij} > 0$.
+        #### Elementos Fundamentales
+        - **Conjunto de Nodos (Ciudades):** $V = \{1, 2, \dots, n\}$
+        - **Parámetro de Costo/Distancia:** $c_{ij}$, la distancia entre la ciudad $i$ y la ciudad $j$.
+        - **Variable de Decisión (Binaria):**
+            $$
+            x_{ij} = \begin{cases}
+            1 & \text{si la ruta va directamente de la ciudad } i \text{ a la } j \\
+            0 & \text{en caso contrario}
+            \end{cases}
+            $$
 
-        ### Planteamiento Matemático
+        #### Función Objetivo
+        Minimizar la suma de las distancias de todos los arcos seleccionados:
+        $$ \min \sum_{i \in V} \sum_{j \in V, i \neq j} c_{ij} x_{ij} $$
 
-        **Función Objetivo**
-        $$ \min \sum_{i=1, i \neq j}^{n} \sum_{j=1}^{n} c_{ij}x_{ij} $$
+        #### Restricciones Fundamentales (De Grado)
+        Estas restricciones aseguran que cada ciudad sea parte de un camino:
+        1.  **Salir de cada ciudad una vez:** Para cada ciudad $i$, se debe tomar exactamente un arco que salga de ella.
+            $$ \sum_{j \in V, j \neq i} x_{ij} = 1 \quad \forall i \in V $$
+        2.  **Entrar a cada ciudad una vez:** Para cada ciudad $j$, se debe tomar exactamente un arco que llegue a ella.
+            $$ \sum_{i \in V, i \neq j} x_{ij} = 1 \quad \forall j \in V $$
 
-        **Sujeto a:**
-        1. $$ x_{ij} \in \{0, 1\} \quad \forall i, j = 1, \dots, n; \quad i \neq j $$
-        2. $$ \sum_{i=1, i \neq j}^{n} x_{ij} = 1 \quad \forall j = 1, \dots, n $$
-        3. $$ \sum_{j=1, j \neq i}^{n} x_{ij} = 1 \quad \forall i = 1, \dots, n $$
-        4. $$ \sum_{i \in Q, j \in Q, i \neq j} x_{ij} \le |Q|-1 \quad \forall Q \subsetneq V, |Q| \ge 2 $$
+        El principal desafío es que estas restricciones por sí solas no impiden la formación de **sub-rutas** (ciclos desconectados más pequeños). Para evitarlo, se necesitan restricciones adicionales, como las propuestas por DFJ.
+        """)
+    
+    # 2. Formulación DFJ
+    with st.expander("Haz clic para ver la Formulación Dantzig-Fulkerson-Johnson (DFJ)"):
+        st.markdown(r"""
+        La formulación propuesta por Dantzig, Fulkerson y Johnson es el pilar de los solvers modernos para el TSP. Su aporte clave es la **Restricción de Eliminación de Sub-rutas (SEC)**.
 
-        ### Explicación de las Restricciones
-        - La **primera ecuación** refuerza el tipo de variable, asegurando que sea binaria (se toma la ruta o no).
-        - La **segunda y tercera ecuación** aseguran que cada nodo sea alcanzado y abandonado solo una vez. Esto garantiza que se forme un ciclo que pase por cada ciudad.
-        - La **cuarta y última ecuación** es la restricción de eliminación de sub-recorridos (SEC), el aporte clave de DFJ. Impone que para cualquier subconjunto de ciudades `Q`, no se pueda formar un ciclo cerrado internamente. Esto obliga al modelo a generar una única ruta que conecte todos los nodos, en lugar de una combinación de recorridos más pequeños.
+        #### Complejidad Algorítmica
+        El TSP es **NP-duro**. El método de *Branch and Cut* usado en esta app (basado en DFJ) tiene una complejidad en el peor de los casos de $O(n^2 2^n)$, lo que hace que el tiempo de cómputo crezca exponencialmente.
 
+        #### Restricción de Eliminación de Sub-Rutas (SEC)
+        Además de las restricciones de grado, se añade:
+        $$ \sum_{i \in Q, j \in Q, i \neq j} x_{ij} \le |Q|-1 \quad \forall Q \subsetneq V, |Q| \ge 2 $$
+
+        - **Explicación:** Esta inecuación es el corazón de la formulación DFJ. Impone que para cualquier subconjunto propio de ciudades `Q`, no se puede formar un ciclo cerrado internamente. Por ejemplo, si un subconjunto tiene 3 ciudades, no pueden existir 3 arcos entre ellas. Esto obliga al modelo a generar una única ruta que conecte todos los nodos.
+        - **Implementación Práctica:** En lugar de añadir las $2^n - 2$ posibles restricciones SEC desde el inicio, se añaden dinámicamente como **"cortes perezosos"**. El solver encuentra una solución con sub-rutas, y solo entonces se añade la restricción específica que prohíbe ese ciclo, repitiendo el proceso hasta encontrar el tour único.
+        """)
+
+    # 3. Planteamiento Bioinspirado
+    with st.expander("Haz clic para ver el Planteamiento Bioinspirado (Algoritmos Genéticos)"):
+        st.markdown(r"""
+        Un enfoque alternativo son los **algoritmos genéticos (AG)**, una heurística inspirada en la evolución natural. No garantizan la solución óptima, pero pueden encontrar soluciones de muy alta calidad en tiempos razonables, especialmente para problemas grandes.
+
+        #### Componentes Clave del AG para el TSP:
+
+        1.  **Representación (Cromosoma):**
+            Una ruta se representa como una permutación de las ciudades. Por ejemplo, `[3, 1, 4, 0, 2]` es un "cromosoma" que codifica una ruta.
+            $$ \text{Ruta} = [c_1, c_2, \dots, c_n] $$
+
+        2.  **Función de Aptitud (Fitness):**
+            La aptitud de una ruta es inversamente proporcional a su longitud total. El objetivo es encontrar el cromosoma con la menor distancia.
+            $$ \text{Fitness} = \sum_{i=0}^{n-2} \text{dist}(c_i, c_{i+1}) + \text{dist}(c_{n-1}, c_0) $$
+
+        3.  **Selección:**
+            Se seleccionan las rutas "más aptas" (más cortas) para que sean "padres" de la siguiente generación. Un método común es la **selección por torneo**.
+
+        4.  **Cruce (Crossover):**
+            Dos rutas "padre" se combinan para crear una "hija". Para el TSP, se usan operadores como el **cruce de orden (OX)**, que preserva la estructura de las rutas para evitar soluciones inválidas (ciudades repetidas).
+
+        5.  **Mutación:**
+            Se introducen pequeños cambios aleatorios en las rutas hijas (ej. intercambiar dos ciudades) para mantener la diversidad genética y explorar nuevas áreas del espacio de soluciones.
         """)
 
     summary_placeholder = st.empty()
