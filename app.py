@@ -17,7 +17,6 @@ def load_data():
     except FileNotFoundError as e:
         st.error(f"Error: No se encontró el archivo {e.filename}.")
         return None, None
-    
     return df_ubicaciones, df_distancias
 
 def subtour(edges, num_cities):
@@ -106,9 +105,37 @@ if df_ubicaciones_full is not None:
     st.markdown(f"### 2. Optimiza la Ruta para el Top {n_ciudades}")
     st.subheader("Algoritmo Utilizado: Formulación Dantzig-Fulkerson-Johnson (DFJ)")
     st.info("""
-    Este método implementa la célebre formulación **Dantzig-Fulkerson-Johnson (DFJ)**, resuelta con Gurobi. El solver utiliza el **algoritmo Simplex** dentro de una estrategia general de **Branch and Cut**. Las restricciones de eliminación de sub-rutas se añaden dinámicamente como "cortes perezosos", lo cual se visualiza en cada iteración del mapa.
+    Este método implementa la célebre formulación **Dantzig-Fulkerson-Johnson (DFJ)**, resuelta con Gurobi. El solver utiliza el **algoritmo Simplex** para las relajaciones lineales dentro de una estrategia general de **Branch and Cut**. Las restricciones de eliminación de sub-rutas se añaden dinámicamente como "cortes perezosos", lo cual se visualiza en cada iteración del mapa.
     """)
     
+    with st.expander("Haz clic para ver el planteamiento como Formulación DFJ"):
+        st.markdown(r"""
+                    
+        ### Complejidad Algorítmica
+        El Problema del Vendedor Viajero (TSP) es **NP-duro**. Esto significa que no existe un algoritmo conocido que pueda resolverlo en tiempo polinomial para todos los casos. La complejidad del método Branch and Cut, que es el que se usa aquí, es en el peor de los casos de orden exponencial:
+        $$ O(n^2 2^n) $$
+        El tiempo de cómputo crece de manera explosiva con el número de ciudades ($n$), lo que hace que encontrar la solución óptima para problemas muy grandes sea computacionalmente inviable.
+
+        La formulación propuesta por Dantzig, Fulkerson y Johnson define el problema con una variable binaria $x_{ij}$ y un parámetro de costo/distancia $c_{ij} > 0$.
+
+        ### Planteamiento Matemático
+
+        **Función Objetivo**
+        $$ \min \sum_{i=1, i \neq j}^{n} \sum_{j=1}^{n} c_{ij}x_{ij} $$
+
+        **Sujeto a:**
+        1. $$ x_{ij} \in \{0, 1\} \quad \forall i, j = 1, \dots, n; \quad i \neq j $$
+        2. $$ \sum_{i=1, i \neq j}^{n} x_{ij} = 1 \quad \forall j = 1, \dots, n $$
+        3. $$ \sum_{j=1, j \neq i}^{n} x_{ij} = 1 \quad \forall i = 1, \dots, n $$
+        4. $$ \sum_{i \in Q, j \in Q, i \neq j} x_{ij} \le |Q|-1 \quad \forall Q \subsetneq V, |Q| \ge 2 $$
+
+        ### Explicación de las Restricciones
+        - La **primera ecuación** refuerza el tipo de variable, asegurando que sea binaria (se toma la ruta o no).
+        - La **segunda y tercera ecuación** aseguran que cada nodo sea alcanzado y abandonado solo una vez. Esto garantiza que se forme un ciclo que pase por cada ciudad.
+        - La **cuarta y última ecuación** es la restricción de eliminación de sub-recorridos (SEC), el aporte clave de DFJ. Impone que para cualquier subconjunto de ciudades `Q`, no se pueda formar un ciclo cerrado internamente. Esto obliga al modelo a generar una única ruta que conecte todos los nodos, en lugar de una combinación de recorridos más pequeños.
+
+        """)
+
     summary_placeholder = st.empty()
     plot_placeholder = st.empty()
 
@@ -119,7 +146,7 @@ if df_ubicaciones_full is not None:
     if not st.session_state.optimal_sequence:
         plot_placeholder.plotly_chart(draw_map(df_ubicaciones), use_container_width=True, key="initial_map")
 
-    if st.button('Iniciar Optimización'):
+    if st.button('**Resolver por DFJ Simplex**'):
         st.session_state.last_run_n = n_ciudades
         st.session_state.optimal_sequence = None
         st.session_state.selected_start_city_index = None
