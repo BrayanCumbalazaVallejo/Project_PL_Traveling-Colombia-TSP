@@ -314,6 +314,7 @@ if df_ubicaciones_full is not None:
         CROSSOVER_RATE = st.sidebar.slider("Tasa Cruce", 0.5, 1.0, 0.9, 0.05)
         MUTATION_RATE = st.sidebar.slider("Tasa Mutación", 0.01, 0.5, 0.18, 0.01)
         TOURNAMENT_SIZE = st.sidebar.slider("Tamaño Torneo", 2, 20, 7, 1)
+        EARLY_STOPPING_PATIENCE = st.sidebar.slider("Paciencia para Parada Temprana", 10, 500, 200, 10)
         
         with st.expander("Haz clic para ver la explicación del Algoritmo Genético"):
             st.markdown(r"""
@@ -322,7 +323,9 @@ if df_ubicaciones_full is not None:
             #### Propiedades del Método
             - **Complejidad Algorítmica:** La complejidad es polinomial, aproximadamente $O(G \cdot P \cdot N)$, donde $G$ es el número de generaciones, $P$ el tamaño de la población y $N$ el número de ciudades. Esto es significativamente más rápido que la complejidad exponencial del método exacto.
             - **Tipo de Óptimo:** Es un método **heurístico**, por lo que **no garantiza encontrar el óptimo global**. Busca de manera inteligente en el espacio de soluciones y usualmente encuentra **óptimos locales** de muy alta calidad, que a menudo son idénticos o muy cercanos al óptimo global.
-            - **Garantía de Parada:** La parada está **garantizada por el usuario**. El algoritmo se detiene después de un número fijo de generaciones (`Nº Generaciones`) ha sido completado. Este es un criterio de parada explícito y determinista.
+            - **Garantía de Parada:** La parada del algoritmo está garantizada y se controla principalmente por dos criterios:
+                1.  **Criterio Principal (Límite de Generaciones):** El algoritmo siempre se detendrá después de completar el número de generaciones (`Nº Generaciones`) que el usuario ha especificado en los parámetros.
+                2.  **Criterio Secundario (Convergencia por Estancamiento):** Esta implementación incluye una **parada temprana**. El algoritmo monitorea si la mejor solución ha dejado de mejorar. Si no se encuentra una ruta mejor después de un número de generaciones consecutivas (definido por el parámetro `Paciencia para Parada Temprana`), se asume que ha convergido a una solución estable y se detiene. Esto hace que el proceso sea más eficiente al no gastar tiempo en búsquedas que ya no rinden fruto.
 
             #### Componentes Clave del AG para el TSP:
 
@@ -363,6 +366,7 @@ if df_ubicaciones_full is not None:
                 start_time = time.time()
                 population = Population(POPULATION_SIZE, df_distancias_matrix)
                 best_overall_score, best_iteration, best_route = float('inf'), 0, None
+                generations_without_improvement = 0
 
                 for i in range(N_ITERATIONS):
                     population.evolve(ELITISM_RATE, CROSSOVER_RATE, MUTATION_RATE, TOURNAMENT_SIZE)
@@ -372,12 +376,19 @@ if df_ubicaciones_full is not None:
                     if new_best_found:
                         best_overall_score = current_best_candidate.fitness_score
                         best_iteration, best_route = i + 1, current_best_candidate.chromosomes
+                        generations_without_improvement = 0
+                    else:
+                        generations_without_improvement += 1
                     
                     if new_best_found or (i + 1) % 25 == 0 or i == 0 or (i + 1) == N_ITERATIONS:
                         summary_placeholder_ga.info(f"Generación {i+1}/{N_ITERATIONS}\n\nMejor Distancia: {best_overall_score:,.2f} km")
                         fig = draw_map(df_ubicaciones, route_indices=current_best_candidate.chromosomes, title=f"AG - Mejor Ruta en Generación {i+1}")
                         plot_placeholder_ga.plotly_chart(fig, use_container_width=True)
                         time.sleep(1.8)
+                    
+                    if generations_without_improvement >= EARLY_STOPPING_PATIENCE:
+                        st.toast(f"Parada temprana en generación {i+1} por estancamiento de la solución.")
+                        break
                 
                 end_time = time.time()
                 st.session_state.ga_results = {"distance": best_overall_score, "iterations": best_iteration, "route": best_route, "runtime": end_time - start_time}
@@ -484,3 +495,4 @@ if df_ubicaciones_full is not None:
 
 elif df_ubicaciones_full is None:
     st.error("La aplicación no puede iniciar porque faltan los archivos de datos.")
+
