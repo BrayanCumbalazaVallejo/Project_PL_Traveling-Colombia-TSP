@@ -217,9 +217,54 @@ if df_ubicaciones_full is not None:
 
     with tab1:
         st.header("Optimización Matemática con Gurobi")
-        with st.expander("Haz clic para ver la explicación del Planteamiento DFJ"):
-            st.markdown(r"""...""") # Contenido del expander
         
+        with st.expander("Haz clic para ver el Planteamiento del TSP como Programación Lineal"):
+            st.markdown(r"""
+            El Problema del Vendedor Viajero (TSP) puede formularse como un problema de **programación lineal entera**. El objetivo es seleccionar un conjunto de arcos (caminos entre ciudades) que formen un ciclo único (un "tour") que visite cada ciudad exactamente una vez, minimizando la distancia total.
+
+            #### Elementos Fundamentales
+            - **Conjunto de Nodos (Ciudades):** $V = \{0, 1, \dots, n-1\}$, donde $n$ es el número de ciudades seleccionadas.
+            - **Parámetro de Costo/Distancia:** $c_{ij}$, la distancia conocida entre la ciudad $i$ y la ciudad $j$.
+            - **Variable de Decisión (Binaria):**
+                $$
+                x_{ij} = \begin{cases}
+                1 & \text{si la ruta va directamente de la ciudad } i \text{ a la } j \\
+                0 & \text{en caso contrario}
+                \end{cases}
+                $$
+
+            #### Función Objetivo
+            Minimizar la suma de las distancias de todos los arcos seleccionados en la ruta:
+            $$ \min \sum_{i \in V} \sum_{j > i} c_{ij} x_{ij} $$
+
+            #### Restricciones Fundamentales (De Grado)
+            Estas restricciones aseguran que cada ciudad sea parte de un camino coherente:
+            $$ \sum_{j \neq i} x_{ij} = 2 \quad \forall i \in V $$
+            - **Explicación:** Para cada ciudad $i$, la suma de todos los arcos que la conectan debe ser exactamente 2. Esto significa que a cada ciudad se debe **llegar desde una ciudad y salir hacia otra**, formando así un tour cerrado.
+
+            El principal desafío es que estas restricciones por sí solas no impiden la formación de **sub-rutas** (ciclos desconectados más pequeños). Para evitarlo, se necesitan restricciones adicionales, como las propuestas por DFJ.
+            """)
+        
+        with st.expander("Haz clic para ver la Formulación Dantzig-Fulkerson-Johnson (DFJ)"):
+            st.markdown(r"""
+            La formulación propuesta por Dantzig, Fulkerson y Johnson es el pilar de los solvers modernos para el TSP. Su aporte clave es la **Restricción de Eliminación de Sub-rutas (SEC)**, que se añade al modelo general anterior.
+
+            #### Propiedades del Método
+            - **Complejidad Algorítmica:** El TSP es **NP-duro**. El método de *Branch and Cut* usado en esta app (basado en DFJ) tiene una complejidad en el peor de los casos de $O(n^2 2^n)$, lo que hace que el tiempo de cómputo crezca exponencialmente con el número de ciudades.
+            - **Tipo de Óptimo:** Este es un método **exacto**. Si se le da suficiente tiempo, **garantiza encontrar el óptimo global**, es decir, la mejor solución posible sin lugar a dudas.
+            - **Garantía de Parada:** El algoritmo de *Branch and Cut* es finito y **siempre converge**. Explora sistemáticamente el árbol de soluciones y "poda" las ramas que no pueden contener la solución óptima. El proceso termina cuando todo el árbol ha sido explorado o la brecha entre la mejor solución encontrada y la mejor cota teórica es cero.
+
+            #### Restricción de Eliminación de Sub-Rutas (SEC)
+            $$ \sum_{i,j \in Q, i < j} x_{ij} \le |Q|-1 \quad \forall Q \subsetneq V, |Q| \ge 2 $$
+
+            - **Implementación Práctica (Cortes Perezosos):** Hay una cantidad exponencial de posibles sub-rutas. Añadirlas todas desde el inicio es inviable. En su lugar, esta aplicación usa **cortes perezosos**:
+                1. Se resuelve el modelo solo con las restricciones de grado.
+                2. Si la solución contiene sub-rutas (como se ve en la animación), se identifica cada sub-ruta `Q`.
+                3. Se añade una restricción SEC específica para cada sub-ruta encontrada.
+                4. Se vuelve a resolver el modelo.
+            Este proceso se repite hasta que la solución es un único tour completo.
+            """)
+
         col1, col2 = st.columns([1, 2])
         with col1:
             st.markdown("Presiona para encontrar la **solución óptima garantizada**.")
@@ -271,7 +316,36 @@ if df_ubicaciones_full is not None:
         TOURNAMENT_SIZE = st.sidebar.slider("Tamaño Torneo", 2, 20, 7, 1)
         
         with st.expander("Haz clic para ver la explicación del Algoritmo Genético"):
-            st.markdown("""...""") # Contenido del expander
+            st.markdown(r"""
+            Un enfoque alternativo son los **algoritmos genéticos (AG)**, una heurística inspirada en la evolución natural. No garantizan la solución óptima, pero pueden encontrar soluciones de muy alta calidad en tiempos razonables, especialmente para problemas grandes.
+
+            #### Propiedades del Método
+            - **Complejidad Algorítmica:** La complejidad es polinomial, aproximadamente $O(G \cdot P \cdot N)$, donde $G$ es el número de generaciones, $P$ el tamaño de la población y $N$ el número de ciudades. Esto es significativamente más rápido que la complejidad exponencial del método exacto.
+            - **Tipo de Óptimo:** Es un método **heurístico**, por lo que **no garantiza encontrar el óptimo global**. Busca de manera inteligente en el espacio de soluciones y usualmente encuentra **óptimos locales** de muy alta calidad, que a menudo son idénticos o muy cercanos al óptimo global.
+            - **Garantía de Parada:** La parada está **garantizada por el usuario**. El algoritmo se detiene después de un número fijo de generaciones (`Nº Generaciones`) ha sido completado. Este es un criterio de parada explícito y determinista.
+
+            #### Componentes Clave del AG para el TSP:
+
+            1.  **Representación (Cromosoma):**
+                Una ruta se representa como una permutación de los índices de las ciudades. Por ejemplo, `[3, 1, 4, 0, 2]` es un "cromosoma" que codifica la ruta `(Ciudad 3 -> Ciudad 1 -> Ciudad 4 -> Ciudad 0 -> Ciudad 2 -> Ciudad 3)`.
+                $$ \text{Ruta candidata} = [c_1, c_2, \dots, c_n] $$
+
+            2.  **Función de Aptitud (Fitness):**
+                La aptitud de una ruta es simplemente su longitud total. El objetivo es encontrar el cromosoma con el menor valor de fitness.
+                $$ \text{Fitness} = \sum_{i=0}^{n-2} \text{dist}(c_i, c_{i+1}) + \text{dist}(c_{n-1}, c_0) $$
+
+            3.  **Selección:**
+                Se seleccionan las rutas "más aptas" (más cortas) para que sean "padres" de la siguiente generación. Esta app usa la **selección por torneo**, donde un pequeño grupo de candidatos compite y el mejor (el de menor distancia) es elegido. El `Tamaño del Torneo` controla la presión de selección.
+
+            4.  **Cruce (Crossover):**
+                Dos rutas "padre" se combinan para crear una "hija", con la esperanza de que herede las mejores características de ambos. Se usa un operador como el **cruce de orden (OX)**, que preserva la estructura de las rutas para evitar soluciones inválidas. La `Tasa de Cruce` define la probabilidad de que dos padres se crucen.
+
+            5.  **Mutación:**
+                Se introducen pequeños cambios aleatorios en las rutas hijas (ej. intercambiar dos ciudades) para mantener la diversidad genética y evitar que el algoritmo se estanque en una solución subóptima. La `Tasa de Mutación` controla la frecuencia de estos cambios.
+            
+            6.  **Elitismo:**
+                Se garantiza que un porcentaje de las mejores rutas (`Tasa de Elitismo`) de una generación pasen directamente a la siguiente sin cambios, preservando las mejores soluciones encontradas hasta el momento.
+            """)
         
         col3, col4 = st.columns([1, 2])
         with col3:
@@ -299,12 +373,11 @@ if df_ubicaciones_full is not None:
                         best_overall_score = current_best_candidate.fitness_score
                         best_iteration, best_route = i + 1, current_best_candidate.chromosomes
                     
-                    # CORRECCIÓN: La pausa ahora ocurre cada vez que se visualiza una iteración
                     if new_best_found or (i + 1) % 25 == 0 or i == 0 or (i + 1) == N_ITERATIONS:
                         summary_placeholder_ga.info(f"Generación {i+1}/{N_ITERATIONS}\n\nMejor Distancia: {best_overall_score:,.2f} km")
                         fig = draw_map(df_ubicaciones, route_indices=current_best_candidate.chromosomes, title=f"AG - Mejor Ruta en Generación {i+1}")
                         plot_placeholder_ga.plotly_chart(fig, use_container_width=True)
-                        time.sleep(1.8) # Pausa para visualización en cada iteración mostrada
+                        time.sleep(1.8)
                 
                 end_time = time.time()
                 st.session_state.ga_results = {"distance": best_overall_score, "iterations": best_iteration, "route": best_route, "runtime": end_time - start_time}
@@ -411,5 +484,3 @@ if df_ubicaciones_full is not None:
 
 elif df_ubicaciones_full is None:
     st.error("La aplicación no puede iniciar porque faltan los archivos de datos.")
-
-
