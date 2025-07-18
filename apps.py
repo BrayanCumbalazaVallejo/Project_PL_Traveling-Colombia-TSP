@@ -216,43 +216,39 @@ if df_ubicaciones_full is not None:
     tab1, tab2 = st.tabs(["**Método Exacto (Dantzig-Fulkerson-Johnson)**", "**Método Heurístico (Algoritmo Genético)**"])
 
     with tab1:
-        st.header("Optimización Matemática con Gurobi")
+        st.header("Optimización con Gurobi (Branch and Cut + DFJ / Simplex)")
         
         with st.expander("Haz clic para ver el Planteamiento del TSP como Programación Lineal"):
             st.markdown(r"""
-            El Problema del Vendedor Viajero (TSP) puede formularse como un problema de **programación lineal entera**. El objetivo es seleccionar un conjunto de arcos (caminos entre ciudades) que formen un ciclo único (un "tour") que visite cada ciudad exactamente una vez, minimizando la distancia total.
+            El Problema del Vendedor Viajero (TSP) es un famoso problema de optimización clasificado como **NP-duro**. Esto significa que no existe un algoritmo que pueda resolverlo de forma rápida y exacta para un gran número de ciudades.
+
+            Resolverlo por **fuerza bruta** tiene una **complejidad factorial** ($O(n!)$), lo que lo vuelve computacionalmente imposible incluso para un número modesto de ciudades. Por esta razón, se deben usar métodos inteligentes como la **programación lineal entera**.
 
             #### Elementos Fundamentales
-            - **Conjunto de Nodos (Ciudades):** $V = \{0, 1, \dots, n-1\}$, donde $n$ es el número de ciudades seleccionadas.
-            - **Parámetro de Costo/Distancia:** $c_{ij}$, la distancia conocida entre la ciudad $i$ y la ciudad $j$.
+            - **Conjunto de Nodos (Ciudades):** $V = \{0, 1, \dots, n-1\}$
+            - **Parámetro de Costo/Distancia:** $c_{ij}$, la distancia entre la ciudad $i$ y $j$.
             - **Variable de Decisión (Binaria):**
                 $$
                 x_{ij} = \begin{cases}
-                1 & \text{si la ruta va directamente de la ciudad } i \text{ a la } j \\
+                1 & \text{si se toma la ruta entre } i \text{ y } j \\
                 0 & \text{en caso contrario}
                 \end{cases}
                 $$
 
             #### Función Objetivo
-            Minimizar la suma de las distancias de todos los arcos seleccionados en la ruta:
+            Minimizar la distancia total del recorrido:
             $$ \min \sum_{i \in V} \sum_{j > i} c_{ij} x_{ij} $$
 
             #### Restricciones Fundamentales (De Grado)
-            Estas restricciones aseguran que cada ciudad sea parte de un camino coherente:
+            Aseguran que a cada ciudad se llega una vez y se sale una vez:
             $$ \sum_{j \neq i} x_{ij} = 2 \quad \forall i \in V $$
-            - **Explicación:** Para cada ciudad $i$, la suma de todos los arcos que la conectan debe ser exactamente 2. Esto significa que a cada ciudad se debe **llegar desde una ciudad y salir hacia otra**, formando así un tour cerrado.
 
-            El principal desafío es que estas restricciones por sí solas no impiden la formación de **sub-rutas** (ciclos desconectados más pequeños). Para evitarlo, se necesitan restricciones adicionales, como las propuestas por DFJ.
+            El principal desafío es que estas restricciones por sí solas no impiden la formación de **sub-rutas**. Para evitarlo, se necesitan las restricciones adicionales de DFJ.
             """)
         
         with st.expander("Haz clic para ver la Formulación Dantzig-Fulkerson-Johnson (DFJ)"):
             st.markdown(r"""
             La formulación propuesta por Dantzig, Fulkerson y Johnson es el pilar de los solvers modernos para el TSP. Su aporte clave es la **Restricción de Eliminación de Sub-rutas (SEC)**, que se añade al modelo general anterior.
-
-            #### Propiedades del Método
-            - **Complejidad Algorítmica:** El TSP es **NP-duro**. El método de *Branch and Cut* usado en esta app (basado en DFJ) tiene una complejidad en el peor de los casos de $O(n^2 2^n)$, lo que hace que el tiempo de cómputo crezca exponencialmente con el número de ciudades.
-            - **Tipo de Óptimo:** Este es un método **exacto**. Si se le da suficiente tiempo, **garantiza encontrar el óptimo global**, es decir, la mejor solución posible sin lugar a dudas.
-            - **Garantía de Parada:** El algoritmo de *Branch and Cut* es finito y **siempre converge**. Explora sistemáticamente el árbol de soluciones y "poda" las ramas que no pueden contener la solución óptima. El proceso termina cuando todo el árbol ha sido explorado o la brecha entre la mejor solución encontrada y la mejor cota teórica es cero.
 
             #### Restricción de Eliminación de Sub-Rutas (SEC)
             $$ \sum_{i,j \in Q, i < j} x_{ij} \le |Q|-1 \quad \forall Q \subsetneq V, |Q| \ge 2 $$
@@ -263,6 +259,11 @@ if df_ubicaciones_full is not None:
                 3. Se añade una restricción SEC específica para cada sub-ruta encontrada.
                 4. Se vuelve a resolver el modelo.
             Este proceso se repite hasta que la solución es un único tour completo.
+                        
+            #### Propiedades del Método
+            - **Complejidad Algorítmica:** El TSP es **NP-duro**. El método de *Branch and Cut* usado en esta app (basado en DFJ) tiene una complejidad en el peor de los casos de $O(n^2 2^n)$, lo que hace que el tiempo de cómputo crezca exponencialmente con el número de ciudades.
+            - **Tipo de Óptimo:** Este es un método **exacto**. Si se le da suficiente tiempo, **garantiza encontrar el óptimo global**, es decir, la mejor solución posible sin lugar a dudas.
+            - **Garantía de Parada:** El algoritmo de *Branch and Cut* es finito y **siempre converge**. Explora sistemáticamente el árbol de soluciones y "poda" las ramas que no pueden contener la solución óptima. El proceso termina cuando todo el árbol ha sido explorado o la brecha entre la mejor solución encontrada y la mejor cota teórica es cero.
             """)
 
         col1, col2 = st.columns([1, 2])
@@ -320,13 +321,6 @@ if df_ubicaciones_full is not None:
             st.markdown(r"""
             Un enfoque alternativo son los **algoritmos genéticos (AG)**, una heurística inspirada en la evolución natural. No garantizan la solución óptima, pero pueden encontrar soluciones de muy alta calidad en tiempos razonables, especialmente para problemas grandes.
 
-            #### Propiedades del Método
-            - **Complejidad Algorítmica:** La complejidad es polinomial, aproximadamente $O(G \cdot P \cdot N)$, donde $G$ es el número de generaciones, $P$ el tamaño de la población y $N$ el número de ciudades. Esto es significativamente más rápido que la complejidad exponencial del método exacto.
-            - **Tipo de Óptimo:** Es un método **heurístico**, por lo que **no garantiza encontrar el óptimo global**. Busca de manera inteligente en el espacio de soluciones y usualmente encuentra **óptimos locales** de muy alta calidad, que a menudo son idénticos o muy cercanos al óptimo global.
-            - **Garantía de Parada:** La parada del algoritmo está garantizada y se controla principalmente por dos criterios:
-                1.  **Criterio Principal (Límite de Generaciones):** El algoritmo siempre se detendrá después de completar el número de generaciones (`Nº Generaciones`) que el usuario ha especificado en los parámetros.
-                2.  **Criterio Secundario (Convergencia por Estancamiento):** Esta implementación incluye una **parada temprana**. El algoritmo monitorea si la mejor solución ha dejado de mejorar. Si no se encuentra una ruta mejor después de un número de generaciones consecutivas (definido por el parámetro `Paciencia para Parada Temprana`), se asume que ha convergido a una solución estable y se detiene. Esto hace que el proceso sea más eficiente al no gastar tiempo en búsquedas que ya no rinden fruto.
-
             #### Componentes Clave del AG para el TSP:
 
             1.  **Representación (Cromosoma):**
@@ -348,8 +342,18 @@ if df_ubicaciones_full is not None:
             
             6.  **Elitismo:**
                 Se garantiza que un porcentaje de las mejores rutas (`Tasa de Elitismo`) de una generación pasen directamente a la siguiente sin cambios, preservando las mejores soluciones encontradas hasta el momento.
+
+            #### Propiedades del Método
+            - **Complejidad Algorítmica:** La complejidad es polinomial, aproximadamente $O(G \cdot P \cdot N)$, donde $G$ es el número de generaciones, $P$ el tamaño de la población y $N$ el número de ciudades. Esto es significativamente más rápido que la complejidad exponencial del método exacto.
+            - **Tipo de Óptimo:** Es un método **heurístico**, por lo que **no garantiza encontrar el óptimo global**. Busca de manera inteligente en el espacio de soluciones y usualmente encuentra **óptimos locales** de muy alta calidad, que a menudo son idénticos o muy cercanos al óptimo global.
+            - **Garantía de Parada:** La parada del algoritmo está garantizada y se controla principalmente por dos criterios:
+                1.  **Criterio Principal (Límite de Generaciones):** El algoritmo siempre se detendrá después de completar el número de generaciones (`Nº Generaciones`) que el usuario ha especificado en los parámetros.
+                2.  **Criterio Secundario (Convergencia por Estancamiento):** Esta implementación incluye una **parada temprana**. El algoritmo monitorea si la mejor solución ha dejado de mejorar. Si no se encuentra una ruta mejor después de un número de generaciones consecutivas (definido por el parámetro `Paciencia para Parada Temprana`), se asume que ha convergido a una solución estable y se detiene. Esto hace que el proceso sea más eficiente al no gastar tiempo en búsquedas que ya no rinden fruto.
+                        
             """)
-        
+
+
+
         col3, col4 = st.columns([1, 2])
         with col3:
             st.markdown("Presiona para encontrar una **solución de alta calidad**.")
